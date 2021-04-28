@@ -1,0 +1,46 @@
+#!/bin/bash
+num_of_files=$1
+file_size=$2
+echo $num_of_files
+node_name=`hostname`
+working_directory=`pwd`
+mkdir -p $working_directory/$node_name/
+echo $working_directory/$node_name
+STARTTIME="$(date -u +%s)"
+for (( i=1; i<=$num_of_files; i++ ))
+do 
+	load_average=`uptime | awk '{print $10}' | cut -d "," -f 1`
+	int_load_average=${load_average%.*}
+		if [ $int_load_average -le 32 ]
+		then	
+			dd if=/dev/urandom of=$working_directory/$node_name/$i bs=$file_size count=1 & > /dev/null 2>&1 
+		else
+			let "i--"	
+		fi
+done
+wait < <(jobs -p)
+ENDTIME="$(date -u +%s)"
+echo "Time to generate $num_of_files files - $(($ENDTIME-$STARTTIME))" >> $node_name.out
+
+mkdir $working_directory/$node_name/stage2
+STARTTIME="$(date -u +%s)"
+for (( i=1; i<=$num_of_files; i++ ))
+	do 
+        load_average=`uptime | awk '{print $10}' | cut -d "," -f 1`
+        int_load_average=${load_average%.*}
+                if [ $int_load_average -le 32 ]
+                then
+			cp -r $working_directory/$node_name/$i  $working_directory/$node_name/stage2/$i &
+		else
+                        let "i--"
+                fi
+	done
+wait < <(jobs -p)
+ENDTIME="$(date -u +%s)"
+echo "Time to copy $num_of_files files - $(($ENDTIME-$STARTTIME))" >> $node_name.out
+
+STARTTIME="$(date -u +%s)"
+#rm -rf $working_directory/$node_name/stage2
+rm -rf $working_directory/$node_name
+ENDTIME="$(date -u +%s)"
+echo "Time to delete $num_of_files files - $(($ENDTIME-$STARTTIME))" >> $node_name.out
